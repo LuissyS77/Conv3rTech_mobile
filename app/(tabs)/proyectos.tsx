@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Platform } from 'react-native';
+import { AppColors } from '@/constants/theme';
 
 type Project = {
   id: string;
@@ -124,7 +125,7 @@ export default function ProyectScreen() {
     <View style={styles.container}>
       <View style={styles.panelHeader}>
         <Text style={styles.panelTitle}>Buscar proyectos</Text>
-        <Ionicons name="search" size={18} color="#FFFFFF" />
+        <Ionicons name="search" size={18} color={AppColors.textPrimary} />
       </View>
       <ScrollView contentContainerStyle={styles.content}>
         {projects.map((p) => (
@@ -135,37 +136,26 @@ export default function ProyectScreen() {
   );
 }
 
-const AppColors = {
-  background: '#121212',
-  panel: '#161616',
-  card: '#242424',
-  text: '#FFFFFF',
-  textSecondary: 'rgba(255,255,255,0.70)',
-  border: 'rgba(255,255,255,0.14)',
-  track: '#2A2A2A',
-  fill: '#53C8FF',
-};
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: AppColors.background },
-  panelHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: AppColors.panel, paddingHorizontal: 16, paddingVertical: 12, margin: 16, borderRadius: 12 },
-  panelTitle: { color: AppColors.text, fontSize: 16, fontWeight: '700' },
+  container: { flex: 1, backgroundColor: AppColors.background, paddingTop: Platform.OS === 'ios' ? 60 : 40 },
+  panelHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: AppColors.panel, paddingHorizontal: 16, paddingVertical: 12, marginHorizontal: 16, marginTop: 0, marginBottom: 16, borderRadius: 12 },
+  panelTitle: { color: AppColors.textPrimary, fontSize: 16, fontWeight: '700' },
   content: { paddingHorizontal: 10, paddingBottom: 140 },
-  card: { backgroundColor: AppColors.card, borderRadius: 16, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: AppColors.border },
+  card: { backgroundColor: AppColors.panel, borderRadius: 16, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: AppColors.border },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  cardTitle: { color: AppColors.text, fontSize: 16, fontWeight: '800' },
-  cardCode: { color: 'rgba(255,255,255,0.54)', fontSize: 12, fontWeight: '700' },
+  cardTitle: { color: AppColors.textPrimary, fontSize: 16, fontWeight: '800' },
+  cardCode: { color: AppColors.textSecondary, fontSize: 12, fontWeight: '700' },
   chipsRow: { flexDirection: 'row', gap: 8, marginTop: 10, marginBottom: 10 },
   chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
   chipText: { fontSize: 12, fontWeight: '700' },
   infoRow: { flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 3 },
   infoLabel: { color: AppColors.textSecondary, fontSize: 13, fontWeight: '700' },
-  infoValue: { color: AppColors.text, fontSize: 13, fontWeight: '600' },
+  infoValue: { color: AppColors.textPrimary, fontSize: 13, fontWeight: '600' },
   description: { color: AppColors.textSecondary, fontSize: 13, marginTop: 6 },
   progressRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
-  progressPct: { color: '#53C8FF', fontWeight: '800', },
-  progressTrack: { height: 6, backgroundColor: AppColors.track, borderRadius: 999, overflow: 'hidden', marginTop: 2 },
-  progressFill: { height: 6, backgroundColor: AppColors.fill  },
+  progressPct: { color: AppColors.info, fontWeight: '800', },
+  progressTrack: { height: 6, backgroundColor: AppColors.border, borderRadius: 999, overflow: 'hidden', marginTop: 2 },
+  progressFill: { height: 6, backgroundColor: AppColors.info  },
   gridRow: { flexDirection: 'row', gap: 12, marginTop: 10 },
   gridCol: { flex: 1 },
 });

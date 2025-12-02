@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Easing, StyleSheet, Text, View } from 'react-native';
+import { AppColors } from '@/constants/theme';
 
 type Props = {
   onDone?: () => void;
@@ -72,14 +73,14 @@ export default function LoadingScreen({ onDone }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0c0c0c' },
+  container: { flex: 1, backgroundColor: AppColors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   logoRow: { flexDirection: 'row', alignItems: 'center' },
   bottom: { alignItems: 'center', paddingBottom: 24 },
-  logoText: { color: '#ffffff', fontSize: 32, fontWeight: '700' },
-  logoAccent: { color: '#ffcc00' },
-  caret: { color: '#ffcc00', fontSize: 32, fontWeight: '700', marginLeft: 4 },
-  syncText: { color: '#a3a3a3', marginBottom: 8 },
-  track: { height: 6, backgroundColor: '#2f2f2f', borderRadius: 3, overflow: 'hidden' },
-  fill: { height: 6, backgroundColor: '#ffcc00' },
+  logoText: { color: AppColors.textPrimary, fontSize: 32, fontWeight: '700' },
+  logoAccent: { color: AppColors.gold },
+  caret: { color: AppColors.gold, fontSize: 32, fontWeight: '700', marginLeft: 4 },
+  syncText: { color: AppColors.textSecondary, marginBottom: 8 },
+  track: { height: 6, backgroundColor: AppColors.border, borderRadius: 3, overflow: 'hidden' },
+  fill: { height: 6, backgroundColor: AppColors.gold },
 });

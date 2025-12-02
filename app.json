@@ -8,7 +8,7 @@
     "scheme": "conv3rtechmobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-  "ios": {
+    "ios": {
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Necesitamos acceder a la cámara para tomar evidencia del trabajo.",
@@ -22,6 +22,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "package": "com.conv3rtech.mobile",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
@@ -47,6 +48,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "64291555-d9f6-4ad3-ba84-987967b06604"
+      }
     }
   }
 }
