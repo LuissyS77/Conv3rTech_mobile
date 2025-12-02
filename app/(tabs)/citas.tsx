@@ -1,9 +1,10 @@
 // app/(tabs)/citas.tsx
 
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Platform } from 'react-native';
 import AppointmentCard from '../../components/AppointmentCard'; // Lo crearemos en el paso 3
 import { Appointment, sampleAppointments } from '../../model/appoiments';
+import { AppColors } from '@/constants/theme';
 
 // --- Lógica de Agrupación (Similar a los Helpers de Flutter) ---
 
@@ -109,44 +110,40 @@ export default function CitasScreen() {
 
 // --- Estilos (Styles) ---
 
-const AppColors = {
-  background: '#121212', 
-  text: '#FFFFFF',
-  textSecondary: 'rgba(255, 255, 255, 0.7)',
-};
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: AppColors.background,
+    paddingTop: Platform.OS === 'ios' ? 40 : 20, // Reduced padding further
   },
   scrollViewContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 140,
+    paddingTop: 0, // Removed extra top padding
+    paddingBottom: 120,
   },
   panel: {
-    backgroundColor: '#161616',
-    borderRadius: 16,
-    padding: 16,
+    // Removed panel background to match the cleaner look in the image
+    // The cards themselves will provide the structure
+    padding: 0, 
   },
   panelTitle: {
-    color: AppColors.text,
+    color: AppColors.textPrimary,
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: 12,
   },
   sectionContainer: {
-    marginBottom: 18,
+    marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: AppColors.textSecondary,
-    marginBottom: 8,
+    fontSize: 17,
+    fontWeight: '800',
+    color: AppColors.textPrimary, // Darker title as in image
+    marginBottom: 12,
+    marginLeft: 4,
   },
   sectionList: {
-    // Contenedor para las tarjetas, si necesitas margen global
+    gap: 4,
   }
 });

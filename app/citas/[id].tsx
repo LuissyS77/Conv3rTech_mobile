@@ -5,6 +5,7 @@ import React, { useMemo, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { AppointmentStatus } from '../../model/appoiments';
 import { Appointment, getStatusColor, sampleAppointments } from '../../model/appoiments';
+import { AppColors } from '@/constants/theme';
 
 const formatDateTime = (date: Date) => {
   const day = date.toLocaleDateString('es-ES', {
@@ -97,26 +98,26 @@ export default function AppointmentDetailScreen() {
         <View style={styles.modalCard}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => router.back()} style={styles.headerBtnLeft}>
-              <Ionicons name="chevron-back" size={22} color={AppColors.text} />
+              <Ionicons name="chevron-back" size={22} color={AppColors.textPrimary} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Detalles de la Cita</Text>
           </View>
 
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
-              <View style={styles.infoIcon}><Ionicons name="construct-outline" size={18} color="#a3a3a3" /></View>
+              <View style={styles.infoIcon}><Ionicons name="construct-outline" size={18} color={AppColors.textSecondary} /></View>
               <View style={styles.infoText}><Text style={styles.infoLabel}>Servicio a Realizar</Text><Text style={styles.infoValue}>{appointment.taskDescription}</Text></View>
             </View>
             <View style={styles.infoRow}>
-              <View style={styles.infoIcon}><Ionicons name="business-outline" size={18} color="#a3a3a3" /></View>
+              <View style={styles.infoIcon}><Ionicons name="business-outline" size={18} color={AppColors.textSecondary} /></View>
               <View style={styles.infoText}><Text style={styles.infoLabel}>Cliente</Text><Text style={styles.infoValue}>{appointment.clientName}</Text></View>
             </View>
             <View style={styles.infoRow}>
-              <View style={styles.infoIcon}><Ionicons name="location-outline" size={18} color="#a3a3a3" /></View>
+              <View style={styles.infoIcon}><Ionicons name="location-outline" size={18} color={AppColors.textSecondary} /></View>
               <View style={styles.infoText}><Text style={styles.infoLabel}>Dirección</Text><Text style={styles.infoValue}>{appointment.location}</Text></View>
             </View>
             <View style={styles.infoRow}>
-              <View style={styles.infoIcon}><Ionicons name="calendar-outline" size={18} color="#a3a3a3" /></View>
+              <View style={styles.infoIcon}><Ionicons name="calendar-outline" size={18} color={AppColors.textSecondary} /></View>
               <View style={styles.infoText}><Text style={styles.infoLabel}>Fecha y Hora</Text><Text style={styles.infoValue}>{formatDateEs(appointment.startTime)}, {formatTime12(appointment.startTime)}</Text></View>
             </View>
             <View style={styles.infoRow}>
@@ -179,7 +180,7 @@ export default function AppointmentDetailScreen() {
                 <Image source={{ uri: evidenceUri }} style={styles.evidenceImage} contentFit="cover" />
               ) : (
                 <View style={styles.evidencePlaceholder}>
-                  <Ionicons name="image-outline" size={48} color="#a3a3a3" />
+                  <Ionicons name="image-outline" size={48} color={AppColors.textSecondary} />
                 </View>
               )}
             </View>
@@ -193,194 +194,35 @@ export default function AppointmentDetailScreen() {
   );
 }
 
-const AppColors = {
-  background: '#121212',
-  card: '#1E1E1E',
-  text: '#FFFFFF', //color del texto
-  textSecondary: 'rgba(255,255,255,0.7)', //Secundario
-  divider: '#2C2C2C',//color divisor
-  primary: '#c4bed4ff',//Primario
-  secondaryBtn: '#2f2f2f',//Boton secundario
-};
-
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    backgroundColor: AppColors.background,
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 80,
-  },
-  modalCard: {
-    backgroundColor: '#242424',
-    borderRadius: 16,
-    padding: 16,
-    gap: 16,
-    marginTop: Platform.OS === 'ios' ? 23: 8,
-    height: Platform.OS === 'ios' ? 750 : 750,
-    overflow: 'hidden',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    paddingVertical: 6,
-  },
-  headerBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 18,
-    backgroundColor: '#242424',
-  },
-  headerBtnLeft: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 18,
-    backgroundColor: '#242424',
-    position: 'absolute',
-    left: 0,
-  },
-  modalTitle: {
-    color: AppColors.text,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  infoCard: {
-    backgroundColor: '#1E1E1E',
-    borderRadius: 12,
-    padding: 12,
-    gap: 10,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  infoIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#242424',
-  },
+  container: { flex: 1, backgroundColor: AppColors.background, paddingHorizontal: 16, paddingVertical: 12, marginTop: Platform.OS === 'ios' ? 23: 8, },
+  emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 },
+  emptyTitle: { color: AppColors.textPrimary, fontSize: 20, fontWeight: '800', marginTop: 16 },
+  emptySubtitle: { color: AppColors.textSecondary, fontSize: 14, marginTop: 6 },
+  modalCard: { backgroundColor: AppColors.panel, borderRadius: 24, padding: 20, marginBottom: 24 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20, position: 'relative' },
+  headerBtnLeft: { position: 'absolute', left: 0, width: 36, height: 36, borderRadius: 18, backgroundColor: AppColors.background, alignItems: 'center', justifyContent: 'center' },
+  modalTitle: { color: AppColors.textPrimary, fontSize: 17, fontWeight: '700' },
+  infoCard: { backgroundColor: AppColors.background, borderRadius: 16, padding: 16, gap: 16, marginBottom: 20, borderWidth: 1, borderColor: AppColors.border },
+  infoRow: { flexDirection: 'row', gap: 12 },
+  infoIcon: { width: 32, alignItems: 'center', paddingTop: 2 },
   infoText: { flex: 1 },
-  infoLabel: {
-    color: AppColors.textSecondary,
-    fontSize: 12,
-  },
-  infoValue: {
-    color: AppColors.text,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  stateIcon: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-  },
-  stateValue: {
-    color: AppColors.text,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  primaryBtn: {
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: AppColors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryBtnText: {
-    color: AppColors.text,
-    fontWeight: '700',
-  },
-  secondaryBtn: {
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: AppColors.secondaryBtn,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryBtnText: {
-    color: AppColors.text,
-    fontWeight: '700',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  timerWrap: {
-    marginTop: 10,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#1E1E1E',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-  },
-  timerText: {
-    color: '#53C8FF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  evidenceCard: {
-    backgroundColor: '#1E1E1E',
-    borderRadius: 12,
-    padding: 12,
-    gap: 10,
-  },
-  evidenceTitle: {
-    color: AppColors.textSecondary,
-    fontSize: 12,
-  },
-  evidenceSubtitle: {
-    color: AppColors.textSecondary,
-    fontSize: 12,
-  },
-  evidenceImageWrap: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#242424',
-    height: 160,
-  },
-  evidenceImage: {
-    width: '100%',
-    height: '100%',
-  },
-  evidencePlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  updateBtn: {
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#2f2f2f',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  updateBtnText: {
-    color: AppColors.text,
-    fontWeight: '600',
-  },
-  emptyTitle: {
-    color: AppColors.text,
-    fontSize: 16,
-    fontWeight: '700',
-    marginTop: 8,
-  },
-  emptySubtitle: {
-    color: AppColors.textSecondary,
-    fontSize: 12,
-    marginTop: 4,
-  },
-  emptyState: {
-    flex: 1,
-  },
+  infoLabel: { color: AppColors.textSecondary, fontSize: 12, fontWeight: '700', marginBottom: 2 },
+  infoValue: { color: AppColors.textPrimary, fontSize: 14, fontWeight: '600', lineHeight: 20 },
+  stateValue: { fontSize: 14, fontWeight: '800' },
+  primaryBtn: { backgroundColor: AppColors.gold, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
+  primaryBtnText: { color: '#000', fontSize: 15, fontWeight: '800' },
+  secondaryBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: AppColors.border, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 12 },
+  secondaryBtnText: { color: AppColors.textPrimary, fontSize: 15, fontWeight: '800' },
+  buttonDisabled: { opacity: 0.5 },
+  timerWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 20, gap: 8, backgroundColor: 'rgba(83, 200, 255, 0.1)', paddingVertical: 10, borderRadius: 12 },
+  timerText: { color: AppColors.info, fontSize: 24, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  evidenceCard: { marginTop: 24, borderTopWidth: 1, borderTopColor: AppColors.border, paddingTop: 20 },
+  evidenceTitle: { color: AppColors.textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 4 },
+  evidenceSubtitle: { color: AppColors.textSecondary, fontSize: 13, marginBottom: 14 },
+  evidenceImageWrap: { width: '100%', height: 200, backgroundColor: AppColors.background, borderRadius: 12, overflow: 'hidden', marginBottom: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: AppColors.border, borderStyle: 'dashed' },
+  evidenceImage: { width: '100%', height: '100%' },
+  evidencePlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  updateBtn: { backgroundColor: AppColors.inputBg, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  updateBtnText: { color: AppColors.textPrimary, fontSize: 14, fontWeight: '700' },
 });

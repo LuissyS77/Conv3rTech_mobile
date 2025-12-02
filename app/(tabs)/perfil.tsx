@@ -1,43 +1,11 @@
 // app/(tabs)/perfil.tsx
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-
-type User = {
-  firstName: string;
-  lastName: string;
-  role: string;
-  documentType: string;
-  documentNumber: string;
-  email: string;
-};
-
-async function fetchUserProfile(): Promise<User> {
-  try {
-    const base = process.env.EXPO_PUBLIC_API_URL || '';
-    const res = await fetch(`${base}/api/user/me`);
-    if (res.ok) {
-      const json = await res.json();
-      return {
-        firstName: json.firstName ?? 'Ana',
-        lastName: json.lastName ?? 'Torres',
-        role: json.role ?? 'Coordinadora',
-        documentType: json.documentType ?? 'CC',
-        documentNumber: json.documentNumber ?? '1023456789',
-        email: json.email ?? 'ana.torres@empresa.com',
-      };
-    }
-  } catch {}
-  return {
-    firstName: 'Ana',
-    lastName: 'Torres',
-    role: 'Coordinadora',
-    documentType: 'CC',
-    documentNumber: '1023456789',
-    email: 'ana.torres@empresa.com',
-  };
-}
+import { useAuth } from '@/context/AuthContext';
+import { authService } from '@/services/auth';
+import { AppColors } from '@/constants/theme';
 
 function initials(first: string, last: string) {
   const a = first?.trim()?.[0] ?? '';
@@ -47,32 +15,73 @@ function initials(first: string, last: string) {
 
 export default function PerfilScreen() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
+  const { user, signOut, signIn } = useAuth(); // We might need to refresh user in context
+  
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [documentType, setDocumentType] = useState('');
   const [documentNumber, setDocumentNumber] = useState('');
   const [email, setEmail] = useState('');
+  const [cellphone, setCellphone] = useState('');
+  
+  // Password change fields
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
 
   useEffect(() => {
-    fetchUserProfile().then((u) => {
-      setUser(u);
-      setFirstName(u.firstName);
-      setLastName(u.lastName);
-      setDocumentType(u.documentType);
-      setDocumentNumber(u.documentNumber);
-      setEmail(u.email);
-    });
-  }, []);
+    if (user) {
+      setFirstName(user.nombre || '');
+      setLastName(user.apellido || '');
+      setDocumentType(user.tipoDocumento || '');
+      setDocumentNumber(user.documento || '');
+      setEmail(user.email || '');
+      setCellphone(user.celular || '');
+    }
+  }, [user]);
 
   const letters = useMemo(() => initials(firstName, lastName), [firstName, lastName]);
 
-  const onSave = () => {
-    console.log('Guardar', { firstName, lastName, documentType, documentNumber, email, newPassword });
+  const onSave = async () => {
+    try {
+      // Update profile
+      await authService.updateProfile({
+        nombre: firstName,
+        apellido: lastName,
+        email: email,
+        celular: cellphone,
+        documento: documentNumber,
+        tipoDocumento: documentType,
+      });
+
+      // Change password if provided
+      if (newPassword) {
+        if (!currentPassword) {
+          Alert.alert('Error', 'Para cambiar la contraseña debes ingresar tu contraseña actual.');
+          return;
+        }
+        await authService.changePassword(currentPassword, newPassword);
+        setNewPassword('');
+        setCurrentPassword('');
+      }
+
+      Alert.alert('Éxito', 'Perfil actualizado correctamente.');
+      // Optionally refresh user data in context (could add a refresh method to context)
+      // For now, we rely on next fetch or restart, or we can trigger a reload if we expose it.
+      // Actually, `signIn` updates the user. We might want a `refreshUser` in context.
+    } catch (error: any) {
+      console.error('Update error:', error);
+      const msg = error.response?.data?.message || 'Error al actualizar perfil.';
+      Alert.alert('Error', msg);
+    }
   };
-  const onLogout = () => {
-    console.log('Cerrar sesión');
+
+  const onLogout = async () => {
+    try {
+      await signOut();
+      // router.replace('/'); // Handled by RootLayout
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   return (
@@ -80,11 +89,11 @@ export default function PerfilScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.toolbar}>
           <TouchableOpacity style={styles.toolbarBtnLeft} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={20} color={AppColors.text} />
+            <Ionicons name="chevron-back" size={20} color={AppColors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.toolbarTitle}>Editar Perfil</Text>
           <TouchableOpacity style={styles.toolbarBtnRight} onPress={onSave}>
-            <Ionicons name="pencil" size={18} color={AppColors.text} />
+            <Ionicons name="pencil" size={18} color={AppColors.textPrimary} />
           </TouchableOpacity>
         </View>
         <View style={styles.headerCard}>
@@ -92,7 +101,7 @@ export default function PerfilScreen() {
             <Text style={styles.avatarText}>{letters}</Text>
           </View>
           <Text style={styles.headerName}>{`${firstName} ${lastName}`}</Text>
-          <Text style={styles.headerRole}>{user?.role ?? ''}</Text>
+          <Text style={styles.headerRole}>{user?.rol ?? ''}</Text>
         </View>
 
         <View style={styles.section}>
@@ -101,7 +110,7 @@ export default function PerfilScreen() {
           <View style={styles.fieldRow}>
             <Text style={styles.fieldLabel}>Tipo de Documento</Text>
             <View style={styles.input}>
-              <Text style={styles.inputText}>{documentType}</Text>
+              <TextInput value={documentType} onChangeText={setDocumentType} style={styles.inputText} />
             </View>
           </View>
 
@@ -125,6 +134,13 @@ export default function PerfilScreen() {
               <TextInput value={lastName} onChangeText={setLastName} style={styles.inputText} />
             </View>
           </View>
+          
+          <View style={styles.fieldRow}>
+            <Text style={styles.fieldLabel}>Celular</Text>
+            <View style={styles.input}>
+              <TextInput value={cellphone} onChangeText={setCellphone} style={styles.inputText} keyboardType="phone-pad" />
+            </View>
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -138,7 +154,21 @@ export default function PerfilScreen() {
           </View>
 
           <View style={styles.fieldRow}>
-            <Text style={styles.fieldLabel}>Cambiar Contraseña</Text>
+            <Text style={styles.fieldLabel}>Contraseña Actual</Text>
+            <View style={styles.input}>
+              <TextInput 
+                value={currentPassword} 
+                onChangeText={setCurrentPassword} 
+                style={styles.inputText} 
+                secureTextEntry 
+                placeholder="Requerido para cambiar contraseña"
+                placeholderTextColor="#666"
+              />
+            </View>
+          </View>
+
+          <View style={styles.fieldRow}>
+            <Text style={styles.fieldLabel}>Nueva Contraseña</Text>
             <View style={styles.input}>
               <TextInput value={newPassword} onChangeText={setNewPassword} style={styles.inputText} secureTextEntry />
             </View>
@@ -156,37 +186,26 @@ export default function PerfilScreen() {
   );
 }
 
-const AppColors = {
-  background: '#121212',
-  panel: '#161616',
-  card: '#242424',
-  text: '#FFFFFF',
-  textSecondary: 'rgba(255,255,255,0.70)',
-  border: 'rgba(255,255,255,0.14)',
-  accent: '#2a27caff',
-  inputBg: '#1E1E1E',
-};
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: AppColors.background, marginTop: Platform.OS === 'ios' ? 23: 8, },
   content: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 140 },
   toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', position: 'relative', paddingVertical: 6, marginBottom: 8 },
-  toolbarTitle: { color: AppColors.text, fontSize: 16, fontWeight: '800' },
+  toolbarTitle: { color: AppColors.textPrimary, fontSize: 16, fontWeight: '800' },
   toolbarBtnLeft: { position: 'absolute', left: 0, width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: AppColors.panel },
   toolbarBtnRight: { position: 'absolute', right: 0, width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: AppColors.panel },
   headerCard: { backgroundColor: AppColors.panel, borderRadius: 16, alignItems: 'center', paddingVertical: 18, marginBottom: 12 },
-  avatarCircle: { width: 84, height: 84, borderRadius: 42, backgroundColor: 'rgba(42,39,202,0.18)', borderWidth: 2, borderColor: AppColors.accent, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: AppColors.accent, fontSize: 28, fontWeight: '800' },
-  headerName: { color: AppColors.text, fontSize: 18, fontWeight: '800', marginTop: 10 },
+  avatarCircle: { width: 84, height: 84, borderRadius: 42, backgroundColor: 'rgba(255, 179, 0, 0.18)', borderWidth: 2, borderColor: AppColors.gold, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: AppColors.gold, fontSize: 28, fontWeight: '800' },
+  headerName: { color: AppColors.textPrimary, fontSize: 18, fontWeight: '800', marginTop: 10 },
   headerRole: { color: AppColors.textSecondary, fontSize: 13 },
   section: { backgroundColor: AppColors.card, borderRadius: 16, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: AppColors.border },
-  sectionTitle: { color: AppColors.text, fontSize: 13, fontWeight: '800', marginBottom: 8 },
+  sectionTitle: { color: AppColors.textPrimary, fontSize: 13, fontWeight: '800', marginBottom: 8 },
   fieldRow: { marginBottom: 10 },
   fieldLabel: { color: AppColors.textSecondary, fontSize: 12, fontWeight: '700', marginBottom: 6 },
   input: { backgroundColor: AppColors.inputBg, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
-  inputText: { color: AppColors.text, fontSize: 14, fontWeight: '600' },
-  primaryBtn: { backgroundColor: '#53C8FF', borderRadius: 999, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
-  primaryBtnText: { color: '#001', fontSize: 14, fontWeight: '800' },
+  inputText: { color: AppColors.textPrimary, fontSize: 14, fontWeight: '600' },
+  primaryBtn: { backgroundColor: AppColors.gold, borderRadius: 999, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
+  primaryBtnText: { color: '#000', fontSize: 14, fontWeight: '800' },
   secondaryBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: AppColors.border, borderRadius: 999, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
-  secondaryBtnText: { color: AppColors.text, fontSize: 14, fontWeight: '800' },
+  secondaryBtnText: { color: AppColors.textPrimary, fontSize: 14, fontWeight: '800' },
 });

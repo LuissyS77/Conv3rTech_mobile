@@ -2,27 +2,34 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import LoadingScreen from '@/components/LoadingScreen';
 import LoginScreen from '@/components/LoginScreen';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 
 export const unstable_settings = {
   anchor: '(tabs)',
 };
-export default function RootLayout() {
+
+function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const { isAuthenticated, loading } = useAuth();
   const [booting, setBooting] = useState(true);
-  const [authed, setAuthed] = useState(false);
+
   const onDone = useCallback(() => setBooting(false), []);
-  const onLoginSuccess = useCallback(() => setAuthed(true), []);
+
+  // Mientras carga el auth o la pantalla de carga inicial
+  if (loading) {
+    return <LoadingScreen onDone={() => {}} />; // O un spinner simple
+  }
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       {booting ? (
         <LoadingScreen onDone={onDone} />
-      ) : authed ? (
+      ) : isAuthenticated ? (
         <Stack screenOptions={{ animation: 'fade_from_bottom' }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="citas" options={{ headerShown: false }} />
@@ -31,9 +38,17 @@ export default function RootLayout() {
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
       ) : (
-        <LoginScreen onSuccess={onLoginSuccess} />
+        <LoginScreen onSuccess={() => {}} />
       )}
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
     </ThemeProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AuthProvider>
+      <RootLayoutNav />
+    </AuthProvider>
   );
 }

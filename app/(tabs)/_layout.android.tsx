@@ -6,22 +6,14 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const AppColors = {
-  background: '#121212',
-  card: 'rgba(255, 255, 255, 0.08)',
-  primary: '#dfd7f5ff',
-  accent: '#f5f4f8ff',
-  text: '#FFFFFF',
-  textSecondary: 'rgba(255, 255, 255, 0.70)',
-  divider: 'rgba(255, 255, 255, 0.18)',
-  active: '#ababb4ff',
-  chipFill: '#92929988',
-};
+import { AppColors } from '@/constants/theme';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  const bottomInset = Math.max(insets.bottom, 8);
+  
+  // Remove any extra bottom margin/inset calculation
+  // Just use insets.bottom to account for gesture bar if present, otherwise 0
+  const bottomPadding = insets.bottom;
 
   const renderTabBar = (props: BottomTabBarProps) => {
     const { state, descriptors, navigation } = props;
@@ -29,17 +21,20 @@ export default function TabLayout() {
     if (currentRoute === 'perfil') return null;
 
     return (
-      <SafeAreaView
-        pointerEvents="box-none"
+      <View
         style={[
           styles.customBar,
           {
+            // Position absolute at bottom 0
             position: 'absolute',
             left: 0,
             right: 0,
-            bottom: Math.max(bottomInset, 8),
-            height: 64 + bottomInset,
-            paddingVertical: 10 + Math.max(bottomInset - 10, 0),
+            bottom: 0,
+            // Height includes safe area + navbar content height
+            height: 60 + bottomPadding,
+            // Add paddingBottom equal to safe area
+            paddingBottom: bottomPadding,
+            paddingTop: 10,
             justifyContent: 'space-between',
           },
         ]}
@@ -70,15 +65,15 @@ export default function TabLayout() {
               <FontAwesome
                 name={icon}
                 size={22}
-                color={isFocused ? AppColors.active : AppColors.textSecondary}
+                color={isFocused ? AppColors.active : AppColors.inactive}
               />
-              <Text style={[styles.barLabel, { color: isFocused ? AppColors.active : AppColors.textSecondary }]}>
+              <Text style={[styles.barLabel, { color: isFocused ? AppColors.active : AppColors.inactive }]}>
                 {label}
               </Text>
             </TouchableOpacity>
           );
         })}
-      </SafeAreaView>
+      </View>
     );
   };
 
@@ -91,8 +86,8 @@ export default function TabLayout() {
         sceneStyle: { backgroundColor: AppColors.background },
         headerStyle: { backgroundColor: AppColors.background, elevation: 0, shadowOpacity: 0, borderBottomWidth: 0 },
         headerShadowVisible: false,
-        headerBackground: () => <View style={{ flex: 1, backgroundColor: 'rgba(18, 18, 18, 0.94)' }} />,
-        headerTintColor: AppColors.text,
+        headerBackground: () => <View style={{ flex: 1, backgroundColor: AppColors.background }} />,
+        headerTintColor: AppColors.textPrimary,
         headerTitleStyle: { fontSize: 22, fontWeight: 'bold' },
         headerTitleAlign: 'center',
       }}
@@ -106,37 +101,20 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   customBar: {
-    marginHorizontal: 24,
-    backgroundColor: AppColors.card,
-    borderRadius: 999,
     flexDirection: 'row',
+    backgroundColor: AppColors.background,
+    borderTopWidth: 1,
+    borderColor: AppColors.border,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: AppColors.divider,
+    elevation: 10,
   },
   barItem: {
     flex: 1,
-    height: '100%',
-    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 22,
-    gap: 4,
-    marginHorizontal: 4,
   },
   barItemActive: {
-    backgroundColor: AppColors.chipFill,
-    borderColor: AppColors.active,
-    borderWidth: 1,
+    // Opcional: un fondo sutil para el item activo
   },
   barLabel: {
     fontSize: 12,
