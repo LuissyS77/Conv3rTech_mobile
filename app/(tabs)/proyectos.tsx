@@ -1,70 +1,25 @@
+import React, { useCallback, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { ScrollView, StyleSheet, Text, View, Platform } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Platform, RefreshControl, TextInput } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import api from '../../services/api';
 import { AppColors } from '@/constants/theme';
+import { useAuth } from '@/context/AuthContext';
 
 type Project = {
   id: string;
   title: string;
   priority: 'Alta' | 'Media' | 'Baja';
-  status: 'En Progreso' | 'Completado' | 'Pendiente' | 'Cancelado';
+  status: 'Pendiente' | 'En Progreso' | 'En Pausa' | 'Completado' | 'Cancelado';
   client: string;
   description: string;
   progress: number;
   startDate: string;
   endDate: string;
   coordinator: string;
+  coordinatorId?: number | null;
+  assignedUserIds?: number[];
 };
-
-const projects: Project[] = [
-  {
-    id: 'P-001',
-    title: 'Desarrollo App Móvil',
-    priority: 'Alta',
-    status: 'En Progreso',
-    client: 'Tech Solutions Inc.',
-    description: 'Creación de una app nativa para iOS y Android para gestión de inventario.',
-    progress: 75,
-    startDate: '15/08/2024',
-    endDate: '30/11/2024',
-    coordinator: 'Ana Torres',
-  },
-  {
-    id: 'P-002',
-    title: 'Rediseño Web Corporativo',
-    priority: 'Media',
-    status: 'Completado',
-    client: 'Global Imports Co.',
-    description: 'Modernización del sitio web, optimización para SEO y experiencia de usuario.',
-    progress: 100,
-    startDate: '01/07/2024',
-    endDate: '01/09/2024',
-    coordinator: 'Carlos Ruiz',
-  },
-  {
-    id: 'P-003',
-    title: 'Migración a la Nube',
-    priority: 'Baja',
-    status: 'Pendiente',
-    client: 'Innovatech Logistics',
-    description: 'Migración de servicios a infraestructura cloud y automatización de despliegues.',
-    progress: 35,
-    startDate: '01/06/2024',
-    endDate: '01/12/2024',
-    coordinator: 'María López',
-  },
-  {
-    id: 'P-004',
-    title: 'Implementación de IA',
-    priority: 'Alta',
-    status: 'Cancelado',
-    client: 'Smart Solutions Ltd.',
-    description: 'Integración de IA para optimización de procesos y recomendaciones personalizadas.',
-    progress: 0,
-    startDate: '01/05/2024',
-    endDate: '01/10/2024',
-    coordinator: 'Luisa Fernández',
-  },
-];
 
 function Chip({ label, tone }: { label: string; tone: 'blue' | 'green' | 'yellow' | 'red' | 'gray' }) {
   const map = {
@@ -72,7 +27,7 @@ function Chip({ label, tone }: { label: string; tone: 'blue' | 'green' | 'yellow
     green: { bg: 'rgba(76, 175, 80, 0.20)', fg: '#4CAF50', br: '#4CAF50' },
     yellow: { bg: 'rgba(255, 193, 7, 0.20)', fg: '#FFC107', br: '#FFC107' },
     red: { bg: 'rgba(244, 67, 54, 0.20)', fg: '#F44336', br: '#F44336' },
-    gray: { bg: 'rgba(255,255,255,0.12)', fg: 'rgba(255,255,255,0.80)', br: 'rgba(255,255,255,0.24)' },
+    gray: { bg: 'rgba(148, 163, 184, 0.18)', fg: AppColors.textPrimary, br: 'rgba(148, 163, 184, 0.8)' },
   } as const;
   const c = map[tone];
   return (
@@ -93,7 +48,16 @@ function ProgressBar({ value }: { value: number }) {
 
 function ProjectCard({ p }: { p: Project }) {
   const priorityTone = p.priority === 'Alta' ? 'blue' : p.priority === 'Media' ? 'gray' : 'red';
-  const statusTone = p.status === 'Completado' ? 'green' : p.status === 'En Progreso' ? 'gray' : p.status === 'Cancelado' ? 'red' : 'yellow';
+  const statusTone =
+    p.status === 'Completado'
+      ? 'green'
+      : p.status === 'En Progreso'
+      ? 'gray'
+      : p.status === 'En Pausa'
+      ? 'yellow'
+      : p.status === 'Cancelado'
+      ? 'red'
+      : 'yellow';
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
@@ -121,16 +85,135 @@ function ProjectCard({ p }: { p: Project }) {
 }
 
 export default function ProyectScreen() {
+  const { user } = useAuth();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const fetchProjects = async () => {
+    try {
+      const response = await api.get('/projects');
+      const data = response.data?.data || [];
+      const mapped: Project[] = data.map((item: any) => {
+        const priorityValue =
+          item.prioridad === 'Alta' || item.prioridad === 'Media' || item.prioridad === 'Baja'
+            ? item.prioridad
+            : 'Media';
+        const statusValue =
+          item.estado === 'Pendiente' ||
+          item.estado === 'En Progreso' ||
+          item.estado === 'En Pausa' ||
+          item.estado === 'Completado' ||
+          item.estado === 'Cancelado'
+            ? item.estado
+            : 'Pendiente';
+
+        const coordinatorId =
+          typeof item.responsable?.id === 'number' ? item.responsable.id : null;
+
+        const assignedUserIds: number[] = Array.isArray(item.empleadosAsociados)
+          ? item.empleadosAsociados
+              .map((emp: any) => emp?.id)
+              .filter((id: any) => typeof id === 'number')
+          : [];
+
+        return {
+          id: item.id?.toString() ?? '',
+          title: item.nombre || 'Proyecto sin nombre',
+          priority: priorityValue,
+          status: statusValue,
+          client: item.cliente || 'Cliente no encontrado',
+          description: item.descripcion || 'Sin descripción',
+          progress: typeof item.progreso === 'number' ? item.progreso : Number(item.progreso ?? 0),
+          startDate: item.fechaInicio || '',
+          endDate: item.fechaFin || '',
+          coordinator: item.responsable?.nombre || 'Sin asignar',
+          coordinatorId,
+          assignedUserIds,
+        };
+      });
+      setProjects(mapped);
+    } catch (error) {
+      console.error('Error al obtener proyectos', error);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchProjects();
+    }, [])
+  );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchProjects();
+    setRefreshing(false);
+  };
+
+  const visibleProjects = useMemo(() => {
+    if (!user) return projects;
+    const userId = user.id_usuario;
+    return projects.filter((p) => {
+      if (p.coordinatorId === userId) return true;
+      if (p.assignedUserIds && p.assignedUserIds.includes(userId)) return true;
+      return false;
+    });
+  }, [projects, user]);
+
+  const filteredProjects = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    const base = visibleProjects;
+    if (!term) return base;
+    return base.filter((p) => {
+      const title = p.title?.toLowerCase() || '';
+      const client = p.client?.toLowerCase() || '';
+      const coordinator = p.coordinator?.toLowerCase() || '';
+      return (
+        title.includes(term) ||
+        client.includes(term) ||
+        coordinator.includes(term)
+      );
+    });
+  }, [projects, searchTerm]);
+
   return (
     <View style={styles.container}>
       <View style={styles.panelHeader}>
-        <Text style={styles.panelTitle}>Buscar proyectos</Text>
-        <Ionicons name="search" size={18} color={AppColors.textPrimary} />
+        <Ionicons name="search" size={18} color={AppColors.textSecondary} style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar por proyecto o cliente"
+          placeholderTextColor={AppColors.textSecondary}
+          value={searchTerm}
+          onChangeText={setSearchTerm}
+          returnKeyType="search"
+        />
       </View>
-      <ScrollView contentContainerStyle={styles.content}>
-        {projects.map((p) => (
-          <ProjectCard key={p.id} p={p} />
-        ))}
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {visibleProjects.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="folder-open-outline" size={42} color={AppColors.textSecondary} />
+            <Text style={styles.emptyTitle}>No tienes proyectos asignados</Text>
+            <Text style={styles.emptySubtitle}>
+              Cuando te asignen un proyecto, aparecerá aquí.
+            </Text>
+          </View>
+        ) : filteredProjects.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="search-outline" size={36} color={AppColors.textSecondary} />
+            <Text style={styles.emptyTitle}>Sin resultados</Text>
+            <Text style={styles.emptySubtitle}>
+              No encontramos proyectos que coincidan con tu búsqueda.
+            </Text>
+          </View>
+        ) : (
+          filteredProjects.map((p) => <ProjectCard key={p.id} p={p} />)
+        )}
       </ScrollView>
     </View>
   );
@@ -138,9 +221,10 @@ export default function ProyectScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: AppColors.background, paddingTop: Platform.OS === 'ios' ? 60 : 40 },
-  panelHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: AppColors.panel, paddingHorizontal: 16, paddingVertical: 12, marginHorizontal: 16, marginTop: 0, marginBottom: 16, borderRadius: 12 },
-  panelTitle: { color: AppColors.textPrimary, fontSize: 16, fontWeight: '700' },
-  content: { paddingHorizontal: 10, paddingBottom: 140 },
+  panelHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: AppColors.panel, paddingHorizontal: 12, paddingVertical: 8, marginHorizontal: 16, marginTop: 0, marginBottom: 16, borderRadius: 12 },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, color: AppColors.textPrimary, fontSize: 14, paddingVertical: 4 },
+  content: { paddingHorizontal: 10, paddingBottom: 140, flexGrow: 1 },
   card: { backgroundColor: AppColors.panel, borderRadius: 16, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: AppColors.border },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   cardTitle: { color: AppColors.textPrimary, fontSize: 16, fontWeight: '800' },
@@ -158,4 +242,7 @@ const styles = StyleSheet.create({
   progressFill: { height: 6, backgroundColor: AppColors.info  },
   gridRow: { flexDirection: 'row', gap: 12, marginTop: 10 },
   gridCol: { flex: 1 },
+  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, paddingTop: 40 },
+  emptyTitle: { marginTop: 12, fontSize: 16, fontWeight: '700', color: AppColors.textPrimary, textAlign: 'center' },
+  emptySubtitle: { marginTop: 6, fontSize: 13, color: AppColors.textSecondary, textAlign: 'center' },
 });

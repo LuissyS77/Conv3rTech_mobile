@@ -20,9 +20,6 @@ const API_URL = 'https://convertech-bf96e8817559.herokuapp.com/api';
 
 const api = axios.create({
   baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 // Interceptor para agregar el token a las peticiones
