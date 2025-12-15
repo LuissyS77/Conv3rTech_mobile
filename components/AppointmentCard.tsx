@@ -44,7 +44,10 @@ export default function AppointmentCard({ appointment }: AppointmentCardProps) {
       <View style={[styles.accent, { backgroundColor: statusColor }]} />
       <View style={styles.body}>
         <Text style={styles.subtitle}>{appointment.taskDescription}</Text>
-        <Text style={styles.location}>{appointment.location}</Text>
+        <Text style={styles.location}>
+          {appointment.clientName}
+          {appointment.addressName ? ` · ${appointment.addressName}` : ''}
+        </Text>
         <View style={styles.footerRow}>
           <View style={styles.footerItem}>
             <Ionicons name="calendar-outline" size={16} color={AppColors.info} style={styles.footerIcon} />
@@ -52,7 +55,9 @@ export default function AppointmentCard({ appointment }: AppointmentCardProps) {
           </View>
           <View style={styles.footerItem}>
             <Ionicons name="time-outline" size={16} color={AppColors.info} style={styles.footerIcon} />
-            <Text style={styles.footerText}>{formatTime(appointment.startTime)}</Text>
+            <Text style={styles.footerText}>
+              {formatTime(appointment.startTime)} - {formatTime(appointment.endTime)}
+            </Text>
           </View>
         </View>
       </View>
