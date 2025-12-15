@@ -1,10 +1,12 @@
 // app/(tabs)/citas.tsx
 
-import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, Platform } from 'react-native';
-import AppointmentCard from '../../components/AppointmentCard'; // Lo crearemos en el paso 3
-import { Appointment, sampleAppointments } from '../../model/appoiments';
+import React, { useEffect, useState, useCallback } from 'react';
+import { ScrollView, StyleSheet, Text, View, RefreshControl, Platform } from 'react-native';
+import AppointmentCard from '../../components/AppointmentCard';
+import { Appointment } from '../../model/appoiments';
+import { appointmentService } from '../../services/appointments';
 import { AppColors } from '@/constants/theme';
+import { useFocusEffect } from 'expo-router';
 
 // --- Lógica de Agrupación (Similar a los Helpers de Flutter) ---
 
@@ -17,12 +19,12 @@ const isSameDay = (date1: Date, date2: Date): boolean => {
   );
 };
 
-// Helper para agrupar citas
+// Helper para agrupar citas por rango de fecha dentro del mes actual
 const groupAppointments = (allAppointments: Appointment[]) => {
   const grouped: { [key: string]: Appointment[] } = {
     Today: [],
     Tomorrow: [],
-    ThisWeek: [],
+    ThisMonth: [],
   };
 
   const now = new Date();
@@ -31,9 +33,8 @@ const groupAppointments = (allAppointments: Appointment[]) => {
   const tomorrowStart = new Date(todayStart.getTime());
   tomorrowStart.setDate(todayStart.getDate() + 1);
 
-  // Fecha límite: hasta 7 días a partir de mañana
-  const endOfThisWeek = new Date(tomorrowStart.getTime());
-  endOfThisWeek.setDate(tomorrowStart.getDate() + 6); 
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
 
   for (const appointment of allAppointments) {
     const appointmentDate = appointment.startTime;
@@ -42,8 +43,11 @@ const groupAppointments = (allAppointments: Appointment[]) => {
       grouped['Today'].push(appointment);
     } else if (isSameDay(appointmentDate, tomorrowStart)) {
       grouped['Tomorrow'].push(appointment);
-    } else if (appointmentDate.getTime() > tomorrowStart.getTime() && appointmentDate.getTime() < endOfThisWeek.getTime()) {
-      grouped['ThisWeek'].push(appointment);
+    } else if (
+      appointmentDate.getFullYear() === currentYear &&
+      appointmentDate.getMonth() === currentMonth
+    ) {
+      grouped['ThisMonth'].push(appointment);
     }
   }
 
@@ -62,8 +66,8 @@ const getLocalizedSectionTitle = (englishTitle: string): string => {
       return 'Hoy';
     case 'Tomorrow':
       return 'Mañana';
-    case 'ThisWeek':
-      return 'Esta Semana';
+    case 'ThisMonth':
+      return 'Este Mes';
     default:
       return englishTitle;
   }
@@ -72,21 +76,39 @@ const getLocalizedSectionTitle = (englishTitle: string): string => {
 // --- Componente Principal ---
 
 export default function CitasScreen() {
-  // Aquí es donde en el futuro harás la llamada a la API
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   const groupedAppointments = groupAppointments(allAppointments);
   
-  
-  // Simulación de initState / Carga de datos
-  useEffect(() => {
-    // Aquí pondrías tu lógica fetch o axios para consumir la API
-    // Por ahora, usamos los datos de ejemplo:
-    setAllAppointments(sampleAppointments);
-  }, []);
+  const fetchAppointments = async () => {
+    try {
+      const data = await appointmentService.getAppointments();
+      setAllAppointments(data);
+    } catch (error) {
+      console.error('Error fetching appointments:', error);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchAppointments();
+    }, [])
+  );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchAppointments();
+    setRefreshing(false);
+  };
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollViewContent}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollViewContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <View style={styles.panel}>
           {Object.keys(groupedAppointments).map((sectionTitleKey) => {
             const appointmentsInSection = groupedAppointments[sectionTitleKey];

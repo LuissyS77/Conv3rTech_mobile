@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
 import type { AppointmentStatus } from '../../model/appoiments';
-import { Appointment, getStatusColor, sampleAppointments } from '../../model/appoiments';
+import { Appointment, getStatusColor } from '../../model/appoiments';
+import { appointmentService } from '../../services/appointments';
 import { AppColors } from '@/constants/theme';
 
 const formatDateTime = (date: Date) => {
@@ -42,160 +43,227 @@ const getStatusIcon = (s: AppointmentStatus) => {
       return 'hourglass-outline';
   }
 };
-const formatHMS = (sec: number) => {
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = Math.floor(sec % 60);
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${pad(h)}:${pad(m)}:${pad(s)}`;
-};
 
 export default function AppointmentDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
 
-  const appointment: Appointment | undefined = useMemo(() => {
-    if (!id) return undefined;
-    return sampleAppointments.find((item) => item.id === id);
+  const [appointment, setAppointment] = useState<Appointment | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [localEvidenceUri, setLocalEvidenceUri] = useState<string | undefined>(undefined);
+  const [showCompletedMessage, setShowCompletedMessage] = useState(false);
+
+  useEffect(() => {
+    if (id) {
+      loadAppointment(id);
+    }
   }, [id]);
 
+  const loadAppointment = async (apptId: string) => {
+    try {
+      setLoading(true);
+      const data = await appointmentService.getAppointmentById(apptId);
+      console.log('loadAppointment success', {
+        id: data.id,
+        status: data.status,
+        evidenceUrl: (data as any).evidenceUrl,
+      });
+      setAppointment(data);
+    } catch (error) {
+      console.error('Error loading appointment:', error);
+      Alert.alert('Error', 'No se pudo cargar la información de la cita');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const statusColor = appointment ? getStatusColor(appointment.status) : '#999';
-  const [arrivalMarked, setArrivalMarked] = useState(false);
-  const [finishMarked, setFinishMarked] = useState(false);
-  const [evidenceUri, setEvidenceUri] = useState<string | undefined>(undefined);
-  const [elapsedSec, setElapsedSec] = useState(0);
-  const timerRef = React.useRef<number | null>(null);
 
   const handleTakePhoto = async () => {
     try {
+      console.log('handleTakePhoto start', {
+        appointmentId: appointment?.id,
+        status: appointment?.status,
+      });
       const ImagePicker: any = await import('expo-image-picker');
       const camPerm = await ImagePicker.requestCameraPermissionsAsync();
-      if (camPerm.status === 'granted') {
-        const res = await ImagePicker.launchCameraAsync({ quality: 0.8 });
-        if (res && !res.canceled && res.assets && res.assets.length > 0) {
-          setEvidenceUri(res.assets[0].uri);
-          return;
+      if (camPerm.status !== 'granted') {
+        console.log('handleTakePhoto camera permission denied', camPerm);
+        Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara para subir evidencia.');
+        return;
+      }
+      
+      const res = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+      if (res && !res.canceled && res.assets && res.assets.length > 0) {
+        const uri = res.assets[0].uri;
+        console.log('handleTakePhoto image picked', { uri });
+        setLocalEvidenceUri(uri);
+
+        setUploading(true);
+        try {
+          console.log('handleTakePhoto uploading evidence');
+          const evidenceUrl = await appointmentService.uploadEvidence(uri);
+          console.log('handleTakePhoto evidence uploaded', { evidenceUrl });
+          if (appointment) {
+            console.log('handleTakePhoto updating appointment status', {
+              id: appointment.id,
+              status: 'Completado',
+            });
+            await appointmentService.updateAppointmentStatus(appointment, 'Completado', evidenceUrl);
+            setAppointment({
+              ...appointment,
+              status: 'Completado',
+              evidenceUrl,
+            });
+            setShowCompletedMessage(true);
+            Alert.alert('Éxito', 'Evidencia subida y cita completada.');
+            loadAppointment(appointment.id);
+          }
+        } catch (error: any) {
+          console.error('Error updating appointment:', error);
+          const backendData = error.response?.data;
+          let backendMessage: string | undefined;
+          if (backendData) {
+            if (typeof backendData === 'string') {
+              backendMessage = backendData;
+            } else if (backendData.error) {
+              backendMessage = backendData.error;
+            } else if (backendData.message) {
+              backendMessage = backendData.message;
+            }
+          }
+          if (backendData) {
+            console.log('Error updating appointment response data', JSON.stringify(backendData));
+          }
+          if (error.response?.status === 403) {
+            Alert.alert('Error de Permisos', backendMessage || 'No tienes permiso para actualizar esta cita. Contacta a tu coordinador.');
+          } else if (backendMessage) {
+            Alert.alert('Error', backendMessage);
+          } else {
+            Alert.alert('Error', 'No se pudo actualizar la cita.');
+          }
+        } finally {
+          setUploading(false);
         }
       }
-      const libPerm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (libPerm.status !== 'granted') return;
-      const libRes = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
-      if (libRes && !libRes.canceled && libRes.assets && libRes.assets.length > 0) {
-        setEvidenceUri(libRes.assets[0].uri);
-      }
-    } catch (e) {}
+    } catch (e) {
+      console.error(e);
+      console.log('handleTakePhoto outer error', e);
+      Alert.alert('Error', 'Ocurrió un error al intentar tomar la foto.');
+    }
   };
 
-  return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {!appointment ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="alert-circle-outline" size={48} color="#FF9800" />
-          <Text style={styles.emptyTitle}>Cita no encontrada</Text>
-          <Text style={styles.emptySubtitle}>Verifica que el identificador sea correcto.</Text>
-        </View>
-      ) : (
-        <View style={styles.modalCard}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.headerBtnLeft}>
-              <Ionicons name="chevron-back" size={22} color={AppColors.textPrimary} />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Detalles de la Cita</Text>
-          </View>
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={AppColors.primary} />
+      </View>
+    );
+  }
 
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}><Ionicons name="construct-outline" size={18} color={AppColors.textSecondary} /></View>
-              <View style={styles.infoText}><Text style={styles.infoLabel}>Servicio a Realizar</Text><Text style={styles.infoValue}>{appointment.taskDescription}</Text></View>
+  return (
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {!appointment ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="alert-circle-outline" size={48} color="#FF9800" />
+            <Text style={styles.emptyTitle}>Cita no encontrada</Text>
+            <Text style={styles.emptySubtitle}>Verifica que el identificador sea correcto.</Text>
+          </View>
+        ) : (
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.headerBtnLeft}>
+                <Ionicons name="chevron-back" size={22} color={AppColors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Detalles de la Cita</Text>
             </View>
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}><Ionicons name="business-outline" size={18} color={AppColors.textSecondary} /></View>
-              <View style={styles.infoText}><Text style={styles.infoLabel}>Cliente</Text><Text style={styles.infoValue}>{appointment.clientName}</Text></View>
-            </View>
+
+            <View style={styles.infoCard}>
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}><Ionicons name="construct-outline" size={18} color={AppColors.textSecondary} /></View>
+                <View style={styles.infoText}><Text style={styles.infoLabel}>Servicio a Realizar</Text><Text style={styles.infoValue}>{appointment.taskDescription}</Text></View>
+              </View>
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}><Ionicons name="business-outline" size={18} color={AppColors.textSecondary} /></View>
+                <View style={styles.infoText}><Text style={styles.infoLabel}>Cliente</Text><Text style={styles.infoValue}>{appointment.clientName}</Text></View>
+              </View>
             <View style={styles.infoRow}>
               <View style={styles.infoIcon}><Ionicons name="location-outline" size={18} color={AppColors.textSecondary} /></View>
-              <View style={styles.infoText}><Text style={styles.infoLabel}>Dirección</Text><Text style={styles.infoValue}>{appointment.location}</Text></View>
+              <View style={styles.infoText}>
+                <Text style={styles.infoLabel}>Dirección</Text>
+                <Text style={styles.infoValue}>
+                  {appointment.location}
+                </Text>
+              </View>
             </View>
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}><Ionicons name="calendar-outline" size={18} color={AppColors.textSecondary} /></View>
-              <View style={styles.infoText}><Text style={styles.infoLabel}>Fecha y Hora</Text><Text style={styles.infoValue}>{formatDateEs(appointment.startTime)}, {formatTime12(appointment.startTime)}</Text></View>
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}><Ionicons name="calendar-outline" size={18} color={AppColors.textSecondary} /></View>
+                <View style={styles.infoText}><Text style={styles.infoLabel}>Fecha y Hora</Text><Text style={styles.infoValue}>{formatDateEs(appointment.startTime)}, {formatTime12(appointment.startTime)}</Text></View>
+              </View>
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}><Ionicons name={getStatusIcon(appointment.status)} size={18} color={statusColor} /></View>
+                <View style={styles.infoText}><Text style={styles.infoLabel}>Estado de la Cita</Text><Text style={[styles.stateValue,{ color: statusColor }]}>{appointment.status}</Text></View>
+              </View>
             </View>
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}><Ionicons name={getStatusIcon(appointment.status)} size={18} color={statusColor} /></View>
-              <View style={styles.infoText}><Text style={styles.infoLabel}>Estado de la Cita</Text><Text style={[styles.stateValue,{ color: statusColor }]}>{appointment.status}</Text></View>
-            </View>
-          </View>
 
-          <TouchableOpacity
-            style={[styles.primaryBtn, arrivalMarked && styles.buttonDisabled]}
-            activeOpacity={0.9}
-            disabled={arrivalMarked}
-            onPress={() => {
-              if (arrivalMarked) return;
-              setArrivalMarked(true);
-              setFinishMarked(false);
-              setElapsedSec(0);
-              const start = Date.now();
-              if (timerRef.current == null) {
-                // @ts-ignore
-                timerRef.current = setInterval(() => {
-                  setElapsedSec(Math.floor((Date.now() - start) / 1000));
-                }, 1000);
-              }
-            }}
-          >
-            <Text style={styles.primaryBtnText}>{arrivalMarked ? 'Llegada marcada' : 'Marcar Hora de Llegada'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.secondaryBtn,
-              (!arrivalMarked || finishMarked) && styles.buttonDisabled,
-            ]}
-            activeOpacity={0.9}
-            disabled={!arrivalMarked || finishMarked}
-            onPress={() => {
-              if (!arrivalMarked || finishMarked) return;
-              setFinishMarked(true);
-              if (timerRef.current != null) {
-                clearInterval(timerRef.current);
-                timerRef.current = null;
-              }
-            }}
-          >
-            <Text style={styles.secondaryBtnText}>{finishMarked ? 'Finalización marcada' : 'Marcar Hora de Finalización'}</Text>
-          </TouchableOpacity>
-
-          {arrivalMarked && (
-            <View style={styles.timerWrap}>
-              <Ionicons name="time-outline" size={18} color="#53C8FF" />
-              <Text style={styles.timerText}>{formatHMS(elapsedSec)}</Text>
-            </View>
-          )}
-
-          <View style={styles.evidenceCard}>
-            <Text style={styles.evidenceTitle}>Evidencia del Trabajo</Text>
-            <Text style={styles.evidenceSubtitle}>Toma una foto del trabajo completado.</Text>
-            <View style={styles.evidenceImageWrap}>
-              {evidenceUri ? (
-                <Image source={{ uri: evidenceUri }} style={styles.evidenceImage} contentFit="cover" />
-              ) : (
-                <View style={styles.evidencePlaceholder}>
-                  <Ionicons name="image-outline" size={48} color={AppColors.textSecondary} />
+            <View style={styles.evidenceCard}>
+              <Text style={styles.evidenceTitle}>Evidencia del Trabajo</Text>
+              <Text style={styles.evidenceSubtitle}>Toma una foto para completar la cita.</Text>
+              <View style={styles.evidenceImageWrap}>
+                {localEvidenceUri || appointment.evidenceUrl ? (
+                  <Image
+                    source={{ uri: localEvidenceUri || appointment.evidenceUrl }}
+                    style={styles.evidenceImage}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <View style={styles.evidencePlaceholder}>
+                    <Ionicons name="image-outline" size={48} color={AppColors.textSecondary} />
+                  </View>
+                )}
+              </View>
+              
+              {appointment.status !== 'Completado' && (
+                  <TouchableOpacity 
+                      style={[styles.updateBtn, uploading && styles.buttonDisabled]} 
+                      activeOpacity={0.9} 
+                      onPress={handleTakePhoto}
+                      disabled={uploading}
+                  >
+                      {uploading ? (
+                           <ActivityIndicator size="small" color={AppColors.textPrimary} />
+                      ) : (
+                           <Text style={styles.updateBtnText}>Tomar Foto y Completar</Text>
+                      )}
+                  </TouchableOpacity>
+              )}
+              {(appointment.status === 'Completado' || showCompletedMessage) && (
+                <View style={styles.completedBadge}>
+                  <Ionicons name="checkmark-circle" size={18} color={AppColors.success} />
+                  <Text style={styles.completedText}>La cita se completó correctamente.</Text>
                 </View>
               )}
             </View>
-            <TouchableOpacity style={styles.updateBtn} activeOpacity={0.9} onPress={handleTakePhoto}>
-              <Text style={styles.updateBtnText}>Tomar Foto</Text>
-            </TouchableOpacity>
           </View>
-        </View>
-      )}
-    </ScrollView>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: AppColors.background, paddingHorizontal: 16, paddingVertical: 12, marginTop: Platform.OS === 'ios' ? 23: 8, },
+  container: {
+    flex: 1,
+    backgroundColor: AppColors.background,
+    marginTop: Platform.OS === 'ios' ? 23 : 8,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: 32,
+  },
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 },
   emptyTitle: { color: AppColors.textPrimary, fontSize: 20, fontWeight: '800', marginTop: 16 },
   emptySubtitle: { color: AppColors.textSecondary, fontSize: 14, marginTop: 6 },
@@ -225,4 +293,6 @@ const styles = StyleSheet.create({
   evidencePlaceholder: { alignItems: 'center', justifyContent: 'center' },
   updateBtn: { backgroundColor: AppColors.inputBg, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
   updateBtnText: { color: AppColors.textPrimary, fontSize: 14, fontWeight: '700' },
+  completedBadge: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
+  completedText: { color: AppColors.success, fontSize: 13, fontWeight: '600' },
 });

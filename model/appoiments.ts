@@ -20,11 +20,19 @@ export const getStatusColor = (status: AppointmentStatus): string => {
 export interface Appointment {
   id: string;
   clientName: string;
+  addressName?: string;
   taskDescription: string;
   location: string;
   startTime: Date;
   endTime: Date;
   status: AppointmentStatus;
+  evidenceUrl?: string;
+  clientId?: number;
+  userId?: number;
+  serviceId?: number;
+  rawDate?: string;
+  rawStartTime?: string;
+  rawEndTime?: string;
 }
 
 // 3. Datos de Ejemplo (Hardcodeados para empezar)
